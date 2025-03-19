@@ -415,9 +415,22 @@ const CubeScene = () => {
         // Reset cube rotation
         cube.rotation.set(0, 0, 0);
 
-        // Set to view mode
-        setViewMode();
-    }, [setViewMode]);
+        // Update UI to match view mode but don't call setViewMode() which would trigger effects
+        const { viewButton, editButton, addButton } = sceneRef.current;
+        viewButton.style.backgroundColor = "#3367d6";
+        editButton.style.backgroundColor = "#4285f4";
+        addButton.style.backgroundColor = "#4285f4";
+        
+        // Set mode directly
+        setMode(MODES.VIEW);
+        
+        // Make control points invisible
+        controlPoints.forEach((point) => {
+            point.visible = false;
+        });
+        
+        console.log("Cube reset to original state");
+    }, []);
 
     useEffect(() => {
         // Scene setup
@@ -561,27 +574,49 @@ const CubeScene = () => {
         buttonContainer.style.flexDirection = "row";
         buttonContainer.style.gap = "10px";
 
+        // Style for all buttons
+        const buttonStyle = {
+            padding: "8px 12px",
+            borderRadius: "4px",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: "bold",
+            transition: "background-color 0.3s"
+        };
+
         const viewButton = document.createElement("button");
         viewButton.textContent = "View Mode";
         viewButton.addEventListener("click", setViewMode);
+        Object.assign(viewButton.style, buttonStyle);
+        viewButton.style.backgroundColor = "#3367d6";
+        viewButton.style.color = "white";
         buttonContainer.appendChild(viewButton);
         sceneRef.current.viewButton = viewButton;
 
         const editButton = document.createElement("button");
         editButton.textContent = "Edit Mode";
         editButton.addEventListener("click", setEditMode);
+        Object.assign(editButton.style, buttonStyle);
+        editButton.style.backgroundColor = "#4285f4";
+        editButton.style.color = "white";
         buttonContainer.appendChild(editButton);
         sceneRef.current.editButton = editButton;
 
         const addButton = document.createElement("button");
         addButton.textContent = "Add Vertex Mode";
         addButton.addEventListener("click", setAddMode);
+        Object.assign(addButton.style, buttonStyle);
+        addButton.style.backgroundColor = "#4285f4";
+        addButton.style.color = "white";
         buttonContainer.appendChild(addButton);
         sceneRef.current.addButton = addButton;
 
         const resetButton = document.createElement("button");
         resetButton.textContent = "Reset Cube";
         resetButton.addEventListener("click", resetCube);
+        Object.assign(resetButton.style, buttonStyle);
+        resetButton.style.backgroundColor = "#f44336";
+        resetButton.style.color = "white";
         buttonContainer.appendChild(resetButton);
 
         mountRef.current.appendChild(buttonContainer);
