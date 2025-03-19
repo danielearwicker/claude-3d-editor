@@ -189,6 +189,10 @@ const CubeScene = () => {
     
     // Mode switching functions
     const setViewMode = () => {
+      // Reset state
+      selectedControlPoint = null;
+      isDragging = false;
+      
       controlPoints.forEach(point => {
         point.visible = false;
       });
@@ -206,6 +210,10 @@ const CubeScene = () => {
     };
     
     const setEditMode = () => {
+      // Reset state
+      selectedControlPoint = null;
+      isDragging = false;
+      
       controlPoints.forEach(point => {
         point.visible = true;
       });
@@ -224,6 +232,10 @@ const CubeScene = () => {
     };
     
     const setAddMode = () => {
+      // Reset state
+      selectedControlPoint = null;
+      isDragging = false;
+      
       controlPoints.forEach(point => {
         point.visible = true;
       });
@@ -279,6 +291,8 @@ const CubeScene = () => {
     
     // Function to add a new vertex
     const addVertex = (position, faceIndex) => {
+      console.log("Adding vertex at face index:", faceIndex);
+      
       // Get current positions and indices
       const positions = Array.from(cubeGeometry.attributes.position.array);
       const indices = Array.from(cubeGeometry.getIndex().array);
@@ -297,14 +311,17 @@ const CubeScene = () => {
       controlPointsGroup.add(controlPoint);
       
       // Get the face that was clicked (3 vertices)
+      const faceStartIndex = faceIndex * 3;
       const faceVertices = [
-        indices[faceIndex * 3],
-        indices[faceIndex * 3 + 1],
-        indices[faceIndex * 3 + 2]
+        indices[faceStartIndex],
+        indices[faceStartIndex + 1],
+        indices[faceStartIndex + 2]
       ];
       
+      console.log("Face vertices:", faceVertices);
+      
       // Remove the original face
-      indices.splice(faceIndex * 3, 3);
+      indices.splice(faceStartIndex, 3);
       
       // Add three new faces connecting the new vertex to each edge of the original face
       indices.push(
@@ -351,28 +368,26 @@ const CubeScene = () => {
       
       if (mode === MODES.ADD) {
         // In add mode, check if we clicked on a face of the cube
-        const intersects = raycaster.intersectObject(cube, false);
+        const intersects = raycaster.intersectObject(cube);
         
-        if (intersects.length > 0 && intersects[0].object === cube) {
+        if (intersects.length > 0) {
           const intersect = intersects[0];
           
           // Get the face index
           const faceIndex = Math.floor(intersect.faceIndex);
+          console.log("Clicked on face index:", faceIndex);
           
           // Add a new vertex at the intersection point
           addVertex(intersect.point, faceIndex);
         }
       } else if (mode === MODES.EDIT) {
         // In edit mode, check if we clicked on a control point
-        // We need to traverse the scene to find all control points
         const allControlPoints = [];
-        controlPointsGroup.traverse((object) => {
-          if (object instanceof THREE.Mesh && object !== cube) {
-            allControlPoints.push(object);
-          }
+        controlPoints.forEach(point => {
+          allControlPoints.push(point);
         });
         
-        const intersects = raycaster.intersectObjects(allControlPoints, false);
+        const intersects = raycaster.intersectObjects(allControlPoints);
         
         if (intersects.length > 0) {
           selectedControlPoint = intersects[0].object;
@@ -397,7 +412,7 @@ const CubeScene = () => {
         y: e.clientY - previousMousePosition.y
       };
       
-      if (selectedControlPoint && mode === MODES.EDIT) {
+      if (mode === MODES.EDIT && selectedControlPoint) {
         // Move the selected control point
         const movementSpeed = 0.01;
         
@@ -405,15 +420,9 @@ const CubeScene = () => {
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
         
-        // Convert camera-space directions to object-space directions
-        // by applying the inverse of the cube's rotation
-        const cubeQuaternionInverse = cube.quaternion.clone().invert();
-        const localRight = right.clone().applyQuaternion(cubeQuaternionInverse);
-        const localUp = up.clone().applyQuaternion(cubeQuaternionInverse);
-        
-        // Calculate movement in local space
-        const moveX = localRight.multiplyScalar(deltaMove.x * movementSpeed);
-        const moveY = localUp.multiplyScalar(-deltaMove.y * movementSpeed);
+        // Calculate movement in world space
+        const moveX = right.clone().multiplyScalar(deltaMove.x * movementSpeed);
+        const moveY = up.clone().multiplyScalar(-deltaMove.y * movementSpeed);
         
         // Apply movement
         selectedControlPoint.position.add(moveX);
@@ -421,7 +430,7 @@ const CubeScene = () => {
         
         // Update the cube geometry
         updateCubeGeometry();
-      } else if (mode === MODES.VIEW && isDragging) {
+      } else if (mode === MODES.VIEW) {
         // Only rotate the cube in view mode
         cube.rotation.y += deltaMove.x * 0.01;
         cube.rotation.x += deltaMove.y * 0.01;
