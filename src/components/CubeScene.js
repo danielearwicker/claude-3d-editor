@@ -429,19 +429,20 @@ const CubeScene = () => {
         viewButton.style.backgroundColor = "#3367d6";
         editButton.style.backgroundColor = "#4285f4";
         addButton.style.backgroundColor = "#4285f4";
-        
+
         // Set mode directly
         setMode(MODES.VIEW);
-        
+
         // Make control points invisible
         controlPoints.forEach((point) => {
             point.visible = false;
         });
-        
+
         console.log("Cube reset to original state");
     }, []);
 
     useEffect(() => {
+        console.log("Ahem");
         // Scene setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
@@ -590,7 +591,7 @@ const CubeScene = () => {
             border: "none",
             cursor: "pointer",
             fontWeight: "bold",
-            transition: "background-color 0.3s"
+            transition: "background-color 0.3s",
         };
 
         const viewButton = document.createElement("button");
@@ -650,7 +651,7 @@ const CubeScene = () => {
             sceneRef.current.controlPoints.forEach((point) => {
                 point.visible = false;
             });
-            
+
             // Set initial button colors
             sceneRef.current.viewButton.style.backgroundColor = "#3367d6";
             sceneRef.current.editButton.style.backgroundColor = "#4285f4";
@@ -676,15 +677,17 @@ const CubeScene = () => {
     // Effect to update control points visibility when mode changes
     useEffect(() => {
         if (!sceneRef.current.controlPoints) return;
-        
+
         // Only update visibility, don't modify geometry or position
         if (mode === MODES.EDIT || mode === MODES.ADD) {
-            sceneRef.current.controlPoints.forEach(point => {
+            sceneRef.current.controlPoints.forEach((point) => {
                 point.visible = true;
             });
-            console.log(`Mode changed to ${mode}, making control points visible`);
+            console.log(
+                `Mode changed to ${mode}, making control points visible`
+            );
         } else if (mode === MODES.VIEW) {
-            sceneRef.current.controlPoints.forEach(point => {
+            sceneRef.current.controlPoints.forEach((point) => {
                 point.visible = false;
             });
             console.log(`Mode changed to ${mode}, hiding control points`);
