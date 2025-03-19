@@ -260,13 +260,18 @@ const CubeScene = () => {
             point.visible = false;
         });
 
+        // Remove any wireframe from ADD mode
+        cube.children.forEach(child => {
+            if (child.isLineSegments && child !== controlPointsGroup) {
+                cube.remove(child);
+                child.geometry.dispose();
+                child.material.dispose();
+            }
+        });
+
         // Change material to normal material but preserve geometry
-        // Create a new material but copy properties from the old one to ensure continuity
         const newMaterial = new THREE.MeshNormalMaterial();
-        if (cube.material) {
-            // Preserve any relevant properties from the old material
-            newMaterial.needsUpdate = true;
-        }
+        newMaterial.needsUpdate = true;
         cube.material = newMaterial;
 
         // Update UI
@@ -279,7 +284,7 @@ const CubeScene = () => {
     }, [setMode]);
 
     const setEditMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } =
+        const { controlPoints, cube, viewButton, editButton, addButton, controlPointsGroup } =
             sceneRef.current;
 
         // Reset interaction state only
@@ -292,8 +297,16 @@ const CubeScene = () => {
         });
         console.log("Making control points visible:", controlPoints.length);
 
+        // Remove any wireframe from ADD mode
+        cube.children.forEach(child => {
+            if (child.isLineSegments && child !== controlPointsGroup) {
+                cube.remove(child);
+                child.geometry.dispose();
+                child.material.dispose();
+            }
+        });
+
         // Change material to see structure better but preserve geometry
-        // Create a new material but ensure we don't reset the geometry
         const editMaterial = new THREE.MeshNormalMaterial({
             wireframe: false,
             transparent: true,
@@ -325,13 +338,34 @@ const CubeScene = () => {
             point.visible = true;
         });
 
-        // Change material to highlight faces but preserve geometry
-        const addMaterial = new THREE.MeshBasicMaterial({
+        // Create a material that shows both wireframe and faces
+        const addMaterial = new THREE.MeshPhongMaterial({
             color: 0x88ccff,
-            wireframe: true,
-            wireframeLinewidth: 2,
+            transparent: true,
+            opacity: 0.7,
+            side: THREE.DoubleSide
         });
-        addMaterial.needsUpdate = true;
+        
+        // Add wireframe
+        const wireframeGeometry = new THREE.WireframeGeometry(cube.geometry);
+        const wireframe = new THREE.LineSegments(wireframeGeometry);
+        wireframe.material.color.set(0x000000);
+        wireframe.material.linewidth = 2;
+        
+        // Remove any existing wireframe
+        cube.children.forEach(child => {
+            if (child.isLineSegments) {
+                cube.remove(child);
+                child.geometry.dispose();
+                child.material.dispose();
+            }
+        });
+        
+        // Add new wireframe
+        cube.add(wireframe);
+        sceneRef.current.wireframe = wireframe;
+        
+        // Set the cube material
         cube.material = addMaterial;
 
         // Update UI
@@ -659,8 +693,18 @@ const CubeScene = () => {
             window.removeEventListener("resize", handleResize);
             mountRef.current.removeChild(renderer.domElement);
             mountRef.current.removeChild(buttonContainer);
+            
+            // Properly dispose of all materials and geometries
             cubeGeometry.dispose();
             material.dispose();
+            
+            // Dispose of any wireframe or other children
+            if (cube) {
+                cube.children.forEach(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+            }
         };
     }, []); // Empty dependency array means this only runs once
 
