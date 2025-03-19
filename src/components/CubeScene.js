@@ -273,6 +273,14 @@ const CubeScene = () => {
         const newMaterial = new THREE.MeshNormalMaterial();
         newMaterial.needsUpdate = true;
         cube.material = newMaterial;
+        
+        // Log the cube state to help debug
+        console.log("View mode - cube material:", cube.material.type);
+        console.log("View mode - cube visible:", cube.visible);
+        console.log("View mode - cube geometry vertices:", cube.geometry.attributes.position.count);
+        
+        // Ensure cube is visible
+        cube.visible = true;
 
         // Update UI
         viewButton.style.backgroundColor = "#3367d6";
@@ -314,6 +322,13 @@ const CubeScene = () => {
         });
         editMaterial.needsUpdate = true;
         cube.material = editMaterial;
+        
+        // Ensure cube is visible
+        cube.visible = true;
+        
+        // Log the cube state to help debug
+        console.log("Edit mode - cube material:", cube.material.type);
+        console.log("Edit mode - cube visible:", cube.visible);
 
         // Update UI
         viewButton.style.backgroundColor = "#4285f4";
@@ -327,7 +342,7 @@ const CubeScene = () => {
     }, [setMode]);
 
     const setAddMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } =
+        const { controlPoints, cube, viewButton, editButton, addButton, controlPointsGroup } =
             sceneRef.current;
 
         // Reset interaction state only
@@ -354,7 +369,7 @@ const CubeScene = () => {
         
         // Remove any existing wireframe
         cube.children.forEach(child => {
-            if (child.isLineSegments) {
+            if (child.isLineSegments && child !== controlPointsGroup) {
                 cube.remove(child);
                 child.geometry.dispose();
                 child.material.dispose();
@@ -475,6 +490,20 @@ const CubeScene = () => {
         console.log("Cube reset to original state");
     }, []);
 
+    // Debug helper function
+    const debugCubeState = useCallback(() => {
+        const { cube } = sceneRef.current;
+        if (!cube) return;
+        
+        console.log("=== CUBE DEBUG INFO ===");
+        console.log("Cube visible:", cube.visible);
+        console.log("Cube material type:", cube.material.type);
+        console.log("Cube geometry vertices:", cube.geometry.attributes.position.count);
+        console.log("Cube children count:", cube.children.length);
+        console.log("Current mode:", mode);
+        console.log("=====================");
+    }, [mode]);
+    
     // Scene setup effect - only runs once
     useEffect(() => {
         console.log("Setting up scene - this should only run once");
@@ -604,6 +633,13 @@ const CubeScene = () => {
         // Animation loop
         const animate = () => {
             requestAnimationFrame(animate);
+            
+            // Ensure cube is always visible
+            if (cube && !cube.visible) {
+                console.warn("Cube was invisible! Forcing visibility.");
+                cube.visible = true;
+            }
+            
             renderer.render(scene, camera);
         };
 
