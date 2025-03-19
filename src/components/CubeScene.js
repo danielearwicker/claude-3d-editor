@@ -175,7 +175,7 @@ const CubeScene = () => {
     // Function to add a new vertex
     const addVertex = useCallback((position, faceIndex) => {
         console.log("Adding vertex at face index:", faceIndex);
-        const { cubeGeometry, controlPoints, controlPointsGroup } =
+        const { cubeGeometry, controlPoints, controlPointsGroup, cube } =
             sceneRef.current;
 
         // Get current positions and indices
@@ -236,6 +236,26 @@ const CubeScene = () => {
         );
         cubeGeometry.setIndex(indices);
         cubeGeometry.computeVertexNormals();
+        
+        // Update wireframe if in ADD mode
+        if (mode === MODES.ADD && cube.children.some(child => child.isLineSegments)) {
+            // Remove old wireframe
+            cube.children.forEach(child => {
+                if (child.isLineSegments && child !== controlPointsGroup) {
+                    cube.remove(child);
+                    child.geometry.dispose();
+                    child.material.dispose();
+                }
+            });
+            
+            // Add new wireframe
+            const wireframeGeometry = new THREE.WireframeGeometry(cubeGeometry);
+            const wireframe = new THREE.LineSegments(wireframeGeometry);
+            wireframe.material.color.set(0x000000);
+            wireframe.material.linewidth = 2;
+            cube.add(wireframe);
+            sceneRef.current.wireframe = wireframe;
+        }
 
         // Log success message
         console.log(
@@ -244,7 +264,10 @@ const CubeScene = () => {
             )}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`
         );
         console.log(`New vertex index: ${newVertexIndex}`);
-    }, []);
+        
+        // Ensure cube remains visible
+        cube.visible = true;
+    }, [mode]);
 
     // Mode switching functions
     const setViewMode = useCallback(() => {
@@ -342,7 +365,7 @@ const CubeScene = () => {
     }, [setMode]);
 
     const setAddMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton, controlPointsGroup } =
+        const { controlPoints, cube, viewButton, editButton, addButton, controlPointsGroup, cubeGeometry } =
             sceneRef.current;
 
         // Reset interaction state only
@@ -361,8 +384,8 @@ const CubeScene = () => {
             side: THREE.DoubleSide
         });
         
-        // Add wireframe
-        const wireframeGeometry = new THREE.WireframeGeometry(cube.geometry);
+        // Add wireframe using the current geometry
+        const wireframeGeometry = new THREE.WireframeGeometry(cubeGeometry);
         const wireframe = new THREE.LineSegments(wireframeGeometry);
         wireframe.material.color.set(0x000000);
         wireframe.material.linewidth = 2;
@@ -382,6 +405,9 @@ const CubeScene = () => {
         
         // Set the cube material
         cube.material = addMaterial;
+        
+        // Ensure cube is visible
+        cube.visible = true;
 
         // Update UI
         viewButton.style.backgroundColor = "#4285f4";
@@ -640,6 +666,27 @@ const CubeScene = () => {
                 cube.visible = true;
             }
             
+            // Check if cube material is valid
+            if (cube && (!cube.material || cube.material.opacity === 0)) {
+                console.warn("Cube material issue detected! Fixing...");
+                cube.material = new THREE.MeshNormalMaterial();
+            }
+            
+            // Check if wireframe is valid in ADD mode
+            if (mode === MODES.ADD && cube) {
+                let hasWireframe = false;
+                cube.children.forEach(child => {
+                    if (child.isLineSegments && child !== controlPointsGroup) {
+                        hasWireframe = true;
+                    }
+                });
+                
+                if (!hasWireframe) {
+                    console.warn("ADD mode missing wireframe! Recreating...");
+                    setAddMode();
+                }
+            }
+            
             renderer.render(scene, camera);
         };
 
@@ -699,6 +746,15 @@ const CubeScene = () => {
         resetButton.style.backgroundColor = "#f44336";
         resetButton.style.color = "white";
         buttonContainer.appendChild(resetButton);
+        
+        // Add debug button
+        const debugButton = document.createElement("button");
+        debugButton.textContent = "Debug Info";
+        debugButton.addEventListener("click", debugCubeState);
+        Object.assign(debugButton.style, buttonStyle);
+        debugButton.style.backgroundColor = "#9e9e9e";
+        debugButton.style.color = "white";
+        buttonContainer.appendChild(debugButton);
 
         mountRef.current.appendChild(buttonContainer);
 
