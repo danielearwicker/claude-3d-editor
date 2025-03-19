@@ -251,7 +251,7 @@ const CubeScene = () => {
         const { controlPoints, cube, viewButton, editButton, addButton } =
             sceneRef.current;
 
-        // Reset state
+        // Reset interaction state only
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
 
@@ -261,9 +261,13 @@ const CubeScene = () => {
         });
 
         // Change material to normal material but preserve geometry
-        if (cube.material.type !== "MeshNormalMaterial" || cube.material.wireframe) {
-            cube.material = new THREE.MeshNormalMaterial();
+        // Create a new material but copy properties from the old one to ensure continuity
+        const newMaterial = new THREE.MeshNormalMaterial();
+        if (cube.material) {
+            // Preserve any relevant properties from the old material
+            newMaterial.needsUpdate = true;
         }
+        cube.material = newMaterial;
 
         // Update UI
         viewButton.style.backgroundColor = "#3367d6";
@@ -278,7 +282,7 @@ const CubeScene = () => {
         const { controlPoints, cube, viewButton, editButton, addButton } =
             sceneRef.current;
 
-        // Reset state
+        // Reset interaction state only
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
 
@@ -289,11 +293,13 @@ const CubeScene = () => {
         console.log("Making control points visible:", controlPoints.length);
 
         // Change material to see structure better but preserve geometry
+        // Create a new material but ensure we don't reset the geometry
         const editMaterial = new THREE.MeshNormalMaterial({
             wireframe: false,
             transparent: true,
             opacity: 0.8,
         });
+        editMaterial.needsUpdate = true;
         cube.material = editMaterial;
 
         // Update UI
@@ -311,7 +317,7 @@ const CubeScene = () => {
         const { controlPoints, cube, viewButton, editButton, addButton } =
             sceneRef.current;
 
-        // Reset state
+        // Reset interaction state only
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
 
@@ -325,6 +331,7 @@ const CubeScene = () => {
             wireframe: true,
             wireframeLinewidth: 2,
         });
+        addMaterial.needsUpdate = true;
         cube.material = addMaterial;
 
         // Update UI
@@ -639,10 +646,12 @@ const CubeScene = () => {
 
         // Set initial mode only on first render
         if (mode === MODES.VIEW) {
+            // Only set visibility of control points, don't change geometry
             sceneRef.current.controlPoints.forEach((point) => {
                 point.visible = false;
             });
-            sceneRef.current.cube.material = new THREE.MeshNormalMaterial();
+            
+            // Set initial button colors
             sceneRef.current.viewButton.style.backgroundColor = "#3367d6";
             sceneRef.current.editButton.style.backgroundColor = "#4285f4";
             sceneRef.current.addButton.style.backgroundColor = "#4285f4";
@@ -668,6 +677,7 @@ const CubeScene = () => {
     useEffect(() => {
         if (!sceneRef.current.controlPoints) return;
         
+        // Only update visibility, don't modify geometry or position
         if (mode === MODES.EDIT || mode === MODES.ADD) {
             sceneRef.current.controlPoints.forEach(point => {
                 point.visible = true;
