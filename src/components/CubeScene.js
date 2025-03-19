@@ -597,16 +597,16 @@ const CubeScene = () => {
 
         window.addEventListener("resize", handleResize);
 
-        // Set initial mode - using a direct implementation instead of calling setViewMode
-        // to avoid dependency issues
-        sceneRef.current.controlPoints.forEach((point) => {
-            point.visible = false;
-        });
-        sceneRef.current.cube.material = new THREE.MeshNormalMaterial();
-        sceneRef.current.viewButton.style.backgroundColor = "#3367d6";
-        sceneRef.current.editButton.style.backgroundColor = "#4285f4";
-        sceneRef.current.addButton.style.backgroundColor = "#4285f4";
-        setMode(MODES.VIEW);
+        // Set initial mode only on first render
+        if (mode === MODES.VIEW) {
+            sceneRef.current.controlPoints.forEach((point) => {
+                point.visible = false;
+            });
+            sceneRef.current.cube.material = new THREE.MeshNormalMaterial();
+            sceneRef.current.viewButton.style.backgroundColor = "#3367d6";
+            sceneRef.current.editButton.style.backgroundColor = "#4285f4";
+            sceneRef.current.addButton.style.backgroundColor = "#4285f4";
+        }
 
         // Cleanup function
         return () => {
