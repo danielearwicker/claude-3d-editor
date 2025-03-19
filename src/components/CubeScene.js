@@ -260,8 +260,10 @@ const CubeScene = () => {
             point.visible = false;
         });
 
-        // Change material to normal material
-        cube.material = new THREE.MeshNormalMaterial();
+        // Change material to normal material but preserve geometry
+        if (cube.material.type !== "MeshNormalMaterial" || cube.material.wireframe) {
+            cube.material = new THREE.MeshNormalMaterial();
+        }
 
         // Update UI
         viewButton.style.backgroundColor = "#3367d6";
@@ -286,7 +288,7 @@ const CubeScene = () => {
         });
         console.log("Making control points visible:", controlPoints.length);
 
-        // Change material to wireframe to see structure better
+        // Change material to see structure better but preserve geometry
         const editMaterial = new THREE.MeshNormalMaterial({
             wireframe: false,
             transparent: true,
@@ -317,7 +319,7 @@ const CubeScene = () => {
             point.visible = true;
         });
 
-        // Change material to highlight faces
+        // Change material to highlight faces but preserve geometry
         const addMaterial = new THREE.MeshBasicMaterial({
             color: 0x88ccff,
             wireframe: true,
