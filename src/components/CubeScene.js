@@ -69,7 +69,6 @@ const CubeScene = () => {
     // Create control points for each corner
     const controlPoints = [];
     const controlPointsGroup = new THREE.Group();
-    scene.add(controlPointsGroup);
     
     const controlPointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const controlPointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
@@ -89,8 +88,8 @@ const CubeScene = () => {
       controlPointsGroup.add(controlPoint);
     }
     
-    // Add the control points to the scene
-    scene.add(controlPointsGroup);
+    // Add the control points group to the cube so they rotate with it
+    cube.add(controlPointsGroup);
     
     // Add lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -155,6 +154,9 @@ const CubeScene = () => {
       
       positionAttribute.needsUpdate = true;
       cubeGeometry.computeVertexNormals();
+      
+      // Reset cube rotation
+      cube.rotation.set(0, 0, 0);
     };
     
     // Toggle edit mode function
@@ -213,7 +215,7 @@ const CubeScene = () => {
       if (controlPoints[0].visible) {
         // Check if we clicked on a control point
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(controlPoints);
+        const intersects = raycaster.intersectObjects(controlPoints, false);
         
         if (intersects.length > 0) {
           selectedControlPoint = intersects[0].object;
@@ -245,16 +247,21 @@ const CubeScene = () => {
       
       if (selectedControlPoint) {
         // Move the selected control point
-        // Use a plane perpendicular to the camera to move the point
         const movementSpeed = 0.01;
         
         // Create vectors for the camera's right and up directions
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
         
-        // Calculate movement in world space
-        const moveX = right.clone().multiplyScalar(deltaMove.x * movementSpeed);
-        const moveY = up.clone().multiplyScalar(-deltaMove.y * movementSpeed);
+        // Convert camera-space directions to object-space directions
+        // by applying the inverse of the cube's rotation
+        const cubeQuaternionInverse = cube.quaternion.clone().invert();
+        const localRight = right.clone().applyQuaternion(cubeQuaternionInverse);
+        const localUp = up.clone().applyQuaternion(cubeQuaternionInverse);
+        
+        // Calculate movement in local space
+        const moveX = localRight.multiplyScalar(deltaMove.x * movementSpeed);
+        const moveY = localUp.multiplyScalar(-deltaMove.y * movementSpeed);
         
         // Apply movement
         selectedControlPoint.position.add(moveX);
