@@ -11,7 +11,7 @@ const MODES = {
 const CubeScene = () => {
     const mountRef = useRef(null);
     const [mode, setMode] = useState(MODES.VIEW);
-    
+
     // Use refs to store values that need to be accessed by event handlers
     const sceneRef = useRef({
         cube: null,
@@ -27,158 +27,171 @@ const CubeScene = () => {
         renderer: null,
         viewButton: null,
         editButton: null,
-        addButton: null
+        addButton: null,
     });
-    
-    
+
     // Define handlers outside useEffect so they have access to current mode
-    const handleMouseDown = useCallback((e) => {
-        console.log("Mouse down in mode:", mode);
-        const { 
-            raycaster, mouse, controlPoints, cube, 
-            previousMousePosition
-        } = sceneRef.current;
-        
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        
-        // Set up raycaster
-        raycaster.setFromCamera(mouse, sceneRef.current.camera);
-        
-        if (mode === MODES.ADD) {
-            // In add mode, check if we clicked on a face of the cube
-            const intersects = raycaster.intersectObject(cube);
-            
-            if (intersects.length > 0) {
-                const intersect = intersects[0];
-                
-                // Get the face index
-                const faceIndex = Math.floor(intersect.faceIndex);
-                console.log("Clicked on face index:", faceIndex);
-                
-                // Add a new vertex at the intersection point
-                addVertex(intersect.point, faceIndex);
-            }
-        } else if (mode === MODES.EDIT) {
-            // In edit mode, check if we clicked on a control point
-            const allControlPoints = [];
-            controlPoints.forEach((point) => {
-                allControlPoints.push(point);
-            });
-            
-            const intersects = raycaster.intersectObjects(allControlPoints);
-            
-            if (intersects.length > 0) {
-                sceneRef.current.selectedControlPoint = intersects[0].object;
+    const handleMouseDown = useCallback(
+        (e) => {
+            console.log("Mouse down in mode:", mode);
+            const {
+                raycaster,
+                mouse,
+                controlPoints,
+                cube,
+                previousMousePosition,
+            } = sceneRef.current;
+
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            // Set up raycaster
+            raycaster.setFromCamera(mouse, sceneRef.current.camera);
+
+            if (mode === MODES.ADD) {
+                // In add mode, check if we clicked on a face of the cube
+                const intersects = raycaster.intersectObject(cube);
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+
+                    // Get the face index
+                    const faceIndex = Math.floor(intersect.faceIndex);
+                    console.log("Clicked on face index:", faceIndex);
+
+                    // Add a new vertex at the intersection point
+                    addVertex(intersect.point, faceIndex);
+                }
+            } else if (mode === MODES.EDIT) {
+                // In edit mode, check if we clicked on a control point
+                const allControlPoints = [];
+                controlPoints.forEach((point) => {
+                    allControlPoints.push(point);
+                });
+
+                const intersects = raycaster.intersectObjects(allControlPoints);
+
+                if (intersects.length > 0) {
+                    sceneRef.current.selectedControlPoint =
+                        intersects[0].object;
+                    sceneRef.current.isDragging = true;
+                    console.log(
+                        "Selected control point:",
+                        intersects[0].object.userData.index
+                    );
+                }
+            } else if (mode === MODES.VIEW) {
+                // View mode - just rotate the cube
                 sceneRef.current.isDragging = true;
-                console.log("Selected control point:", intersects[0].object.userData.index);
             }
-        } else if (mode === MODES.VIEW) {
-            // View mode - just rotate the cube
-            sceneRef.current.isDragging = true;
+
+            previousMousePosition.x = e.clientX;
+            previousMousePosition.y = e.clientY;
+        },
+        [mode]
+    );
+
+    // Function to update cube geometry when control points move
+    const updateCubeGeometry = useCallback(() => {
+        const { cubeGeometry, controlPoints } = sceneRef.current;
+        const positions = cubeGeometry.attributes.position.array;
+
+        for (let i = 0; i < controlPoints.length; i++) {
+            const point = controlPoints[i];
+            const index = point.userData.index;
+
+            positions[index * 3] = point.position.x;
+            positions[index * 3 + 1] = point.position.y;
+            positions[index * 3 + 2] = point.position.z;
         }
-        
-        previousMousePosition.x = e.clientX;
-        previousMousePosition.y = e.clientY;
-    }, [mode]);
-    
-    const handleMouseMove = useCallback((e) => {
-        if (!sceneRef.current.isDragging) return;
-        
-        const { 
-            previousMousePosition, selectedControlPoint, 
-            cube, camera
-        } = sceneRef.current;
-        
-        const deltaMove = {
-            x: e.clientX - previousMousePosition.x,
-            y: e.clientY - previousMousePosition.y,
-        };
-        
-        if (mode === MODES.EDIT && selectedControlPoint) {
-            // Move the selected control point
-            const movementSpeed = 0.01;
-            
-            // Create vectors for the camera's right and up directions
-            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(
-                camera.quaternion
-            );
-            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(
-                camera.quaternion
-            );
-            
-            // Calculate movement in world space
-            const moveX = right
-                .clone()
-                .multiplyScalar(deltaMove.x * movementSpeed);
-            const moveY = up
-                .clone()
-                .multiplyScalar(-deltaMove.y * movementSpeed);
-            
-            // Apply movement
-            selectedControlPoint.position.add(moveX);
-            selectedControlPoint.position.add(moveY);
-            
-            // Update the cube geometry
-            updateCubeGeometry();
-            console.log("Moving control point in EDIT mode");
-        } else if (mode === MODES.VIEW) {
-            // Only rotate the cube in view mode
-            cube.rotation.y += deltaMove.x * 0.01;
-            cube.rotation.x += deltaMove.y * 0.01;
-        }
-        
-        previousMousePosition.x = e.clientX;
-        previousMousePosition.y = e.clientY;
-    }, [mode, updateCubeGeometry]);
-    
+
+        cubeGeometry.attributes.position.needsUpdate = true;
+        cubeGeometry.computeVertexNormals();
+    }, []);
+
+    const handleMouseMove = useCallback(
+        (e) => {
+            if (!sceneRef.current.isDragging) return;
+
+            const {
+                previousMousePosition,
+                selectedControlPoint,
+                cube,
+                camera,
+            } = sceneRef.current;
+
+            const deltaMove = {
+                x: e.clientX - previousMousePosition.x,
+                y: e.clientY - previousMousePosition.y,
+            };
+
+            if (mode === MODES.EDIT && selectedControlPoint) {
+                // Move the selected control point
+                const movementSpeed = 0.01;
+
+                // Create vectors for the camera's right and up directions
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(
+                    camera.quaternion
+                );
+                const up = new THREE.Vector3(0, 1, 0).applyQuaternion(
+                    camera.quaternion
+                );
+
+                // Calculate movement in world space
+                const moveX = right
+                    .clone()
+                    .multiplyScalar(deltaMove.x * movementSpeed);
+                const moveY = up
+                    .clone()
+                    .multiplyScalar(-deltaMove.y * movementSpeed);
+
+                // Apply movement
+                selectedControlPoint.position.add(moveX);
+                selectedControlPoint.position.add(moveY);
+
+                // Update the cube geometry
+                updateCubeGeometry();
+                console.log("Moving control point in EDIT mode");
+            } else if (mode === MODES.VIEW) {
+                // Only rotate the cube in view mode
+                cube.rotation.y += deltaMove.x * 0.01;
+                cube.rotation.x += deltaMove.y * 0.01;
+            }
+
+            previousMousePosition.x = e.clientX;
+            previousMousePosition.y = e.clientY;
+        },
+        [mode, updateCubeGeometry]
+    );
+
     const handleMouseUp = useCallback(() => {
         sceneRef.current.isDragging = false;
         if (mode !== MODES.EDIT) {
             sceneRef.current.selectedControlPoint = null;
         }
     }, [mode]);
-    
-    // Function to update cube geometry when control points move
-    const updateCubeGeometry = useCallback(() => {
-        const { cubeGeometry, controlPoints } = sceneRef.current;
-        const positions = cubeGeometry.attributes.position.array;
-        
-        for (let i = 0; i < controlPoints.length; i++) {
-            const point = controlPoints[i];
-            const index = point.userData.index;
-            
-            positions[index * 3] = point.position.x;
-            positions[index * 3 + 1] = point.position.y;
-            positions[index * 3 + 2] = point.position.z;
-        }
-        
-        cubeGeometry.attributes.position.needsUpdate = true;
-        cubeGeometry.computeVertexNormals();
-    }, []);
-    
+
     // Function to add a new vertex
     const addVertex = useCallback((position, faceIndex) => {
         console.log("Adding vertex at face index:", faceIndex);
-        const { cubeGeometry, controlPoints, controlPointsGroup } = sceneRef.current;
-        
+        const { cubeGeometry, controlPoints, controlPointsGroup } =
+            sceneRef.current;
+
         // Get current positions and indices
-        const positions = Array.from(
-            cubeGeometry.attributes.position.array
-        );
+        const positions = Array.from(cubeGeometry.attributes.position.array);
         const indices = Array.from(cubeGeometry.getIndex().array);
-        
+
         // Add the new vertex position
         const newVertexIndex = positions.length / 3;
         positions.push(position.x, position.y, position.z);
-        
+
         // Create a new control point for this vertex
         const controlPointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
         const controlPointMaterial = new THREE.MeshBasicMaterial({
             color: 0xff0000,
         });
-        
+
         const controlPoint = new THREE.Mesh(
             controlPointGeometry,
             controlPointMaterial
@@ -186,10 +199,10 @@ const CubeScene = () => {
         controlPoint.position.copy(position);
         controlPoint.userData.index = newVertexIndex;
         controlPoint.visible = true;
-        
+
         controlPoints.push(controlPoint);
         controlPointsGroup.add(controlPoint);
-        
+
         // Get the face that was clicked (3 vertices)
         const faceStartIndex = faceIndex * 3;
         const faceVertices = [
@@ -197,12 +210,12 @@ const CubeScene = () => {
             indices[faceStartIndex + 1],
             indices[faceStartIndex + 2],
         ];
-        
+
         console.log("Face vertices:", faceVertices);
-        
+
         // Remove the original face
         indices.splice(faceStartIndex, 3);
-        
+
         // Add three new faces connecting the new vertex to each edge of the original face
         indices.push(
             faceVertices[0],
@@ -215,7 +228,7 @@ const CubeScene = () => {
             faceVertices[0],
             newVertexIndex
         );
-        
+
         // Update the geometry
         cubeGeometry.setAttribute(
             "position",
@@ -223,7 +236,7 @@ const CubeScene = () => {
         );
         cubeGeometry.setIndex(indices);
         cubeGeometry.computeVertexNormals();
-        
+
         // Log success message
         console.log(
             `Added new vertex at position (${position.x.toFixed(
@@ -232,42 +245,44 @@ const CubeScene = () => {
         );
         console.log(`New vertex index: ${newVertexIndex}`);
     }, []);
-    
+
     // Mode switching functions
     const setViewMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
-        
+        const { controlPoints, cube, viewButton, editButton, addButton } =
+            sceneRef.current;
+
         // Reset state
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
-        
+
         controlPoints.forEach((point) => {
             point.visible = false;
         });
-        
+
         // Change material to normal material
         cube.material = new THREE.MeshNormalMaterial();
-        
+
         // Update UI
         viewButton.style.backgroundColor = "#3367d6";
         editButton.style.backgroundColor = "#4285f4";
         addButton.style.backgroundColor = "#4285f4";
-        
+
         setMode(MODES.VIEW);
         console.log("Switched to VIEW mode - drag to rotate cube");
     }, [setMode]);
-    
+
     const setEditMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
-        
+        const { controlPoints, cube, viewButton, editButton, addButton } =
+            sceneRef.current;
+
         // Reset state
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
-        
+
         controlPoints.forEach((point) => {
             point.visible = true;
         });
-        
+
         // Change material to wireframe to see structure better
         const editMaterial = new THREE.MeshNormalMaterial({
             wireframe: false,
@@ -275,29 +290,30 @@ const CubeScene = () => {
             opacity: 0.8,
         });
         cube.material = editMaterial;
-        
+
         // Update UI
         viewButton.style.backgroundColor = "#4285f4";
         editButton.style.backgroundColor = "#3367d6";
         addButton.style.backgroundColor = "#4285f4";
-        
+
         setMode(MODES.EDIT);
         console.log(
             "Switched to EDIT mode - click and drag control points to move vertices"
         );
     }, [setMode]);
-    
+
     const setAddMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
-        
+        const { controlPoints, cube, viewButton, editButton, addButton } =
+            sceneRef.current;
+
         // Reset state
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
-        
+
         controlPoints.forEach((point) => {
             point.visible = true;
         });
-        
+
         // Change material to highlight faces
         const addMaterial = new THREE.MeshBasicMaterial({
             color: 0x88ccff,
@@ -305,36 +321,53 @@ const CubeScene = () => {
             wireframeLinewidth: 2,
         });
         cube.material = addMaterial;
-        
+
         // Update UI
         viewButton.style.backgroundColor = "#4285f4";
         editButton.style.backgroundColor = "#4285f4";
         addButton.style.backgroundColor = "#3367d6";
-        
+
         setMode(MODES.ADD);
         console.log(
             "Switched to ADD mode - click on a face to add a new vertex"
         );
     }, [setMode]);
-    
+
     // Reset cube function
     const resetCube = useCallback(() => {
-        const { cube, controlPoints, controlPointsGroup, cubeGeometry } = sceneRef.current;
-        
+        const { cube, controlPoints, controlPointsGroup, cubeGeometry } =
+            sceneRef.current;
+
         const size = 1;
         const positions = [
             // Front face
-            -size, -size,  size, // 0: bottom-left-front
-             size, -size,  size, // 1: bottom-right-front
-             size,  size,  size, // 2: top-right-front
-            -size,  size,  size, // 3: top-left-front
+            -size,
+            -size,
+            size, // 0: bottom-left-front
+            size,
+            -size,
+            size, // 1: bottom-right-front
+            size,
+            size,
+            size, // 2: top-right-front
+            -size,
+            size,
+            size, // 3: top-left-front
             // Back face
-            -size, -size, -size, // 4: bottom-left-back
-             size, -size, -size, // 5: bottom-right-back
-             size,  size, -size, // 6: top-right-back
-            -size,  size, -size  // 7: top-left-back
+            -size,
+            -size,
+            -size, // 4: bottom-left-back
+            size,
+            -size,
+            -size, // 5: bottom-right-back
+            size,
+            size,
+            -size, // 6: top-right-back
+            -size,
+            size,
+            -size, // 7: top-left-back
         ];
-        
+
         // Remove any extra control points beyond the original 8
         while (controlPoints.length > 8) {
             const point = controlPoints.pop();
@@ -342,7 +375,7 @@ const CubeScene = () => {
             point.geometry.dispose();
             point.material.dispose();
         }
-        
+
         // Reset remaining control points
         for (let i = 0; i < controlPoints.length; i++) {
             controlPoints[i].position.set(
@@ -352,7 +385,7 @@ const CubeScene = () => {
             );
             controlPoints[i].userData.index = i;
         }
-        
+
         // Reset cube geometry to original box
         const indices = [
             // Front face
@@ -366,19 +399,19 @@ const CubeScene = () => {
             // Right face
             1, 5, 6, 1, 6, 2,
             // Left face
-            4, 0, 3, 4, 3, 7
+            4, 0, 3, 4, 3, 7,
         ];
-        
+
         cubeGeometry.setAttribute(
             "position",
             new THREE.Float32BufferAttribute(positions, 3)
         );
         cubeGeometry.setIndex(indices);
         cubeGeometry.computeVertexNormals();
-        
+
         // Reset cube rotation
         cube.rotation.set(0, 0, 0);
-        
+
         // Set to view mode
         setViewMode();
     }, [setViewMode]);
