@@ -32,6 +32,7 @@ const CubeScene = () => {
     
     // Define handlers outside useEffect so they have access to current mode
     const handleMouseDown = useCallback((e) => {
+        console.log("Mouse down in mode:", mode);
         const { 
             raycaster, mouse, controlPoints, cube, 
             previousMousePosition
@@ -70,6 +71,7 @@ const CubeScene = () => {
             if (intersects.length > 0) {
                 sceneRef.current.selectedControlPoint = intersects[0].object;
                 sceneRef.current.isDragging = true;
+                console.log("Selected control point:", intersects[0].object.userData.index);
             }
         } else if (mode === MODES.VIEW) {
             // View mode - just rotate the cube
@@ -78,14 +80,14 @@ const CubeScene = () => {
         
         previousMousePosition.x = e.clientX;
         previousMousePosition.y = e.clientY;
-    }, [mode]);
+    }, [mode, addVertex]);
     
     const handleMouseMove = useCallback((e) => {
         if (!sceneRef.current.isDragging) return;
         
         const { 
             previousMousePosition, selectedControlPoint, 
-            cube, camera, cubeGeometry
+            cube, camera
         } = sceneRef.current;
         
         const deltaMove = {
@@ -119,6 +121,7 @@ const CubeScene = () => {
             
             // Update the cube geometry
             updateCubeGeometry();
+            console.log("Moving control point in EDIT mode");
         } else if (mode === MODES.VIEW) {
             // Only rotate the cube in view mode
             cube.rotation.y += deltaMove.x * 0.01;
@@ -127,7 +130,7 @@ const CubeScene = () => {
         
         previousMousePosition.x = e.clientX;
         previousMousePosition.y = e.clientY;
-    }, [mode]);
+    }, [mode, updateCubeGeometry]);
     
     const handleMouseUp = useCallback(() => {
         sceneRef.current.isDragging = false;
@@ -251,7 +254,7 @@ const CubeScene = () => {
         
         setMode(MODES.VIEW);
         console.log("Switched to VIEW mode - drag to rotate cube");
-    }, []);
+    }, [setMode]);
     
     const setEditMode = useCallback(() => {
         const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
@@ -281,7 +284,7 @@ const CubeScene = () => {
         console.log(
             "Switched to EDIT mode - click and drag control points to move vertices"
         );
-    }, []);
+    }, [setMode]);
     
     const setAddMode = useCallback(() => {
         const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
@@ -311,7 +314,7 @@ const CubeScene = () => {
         console.log(
             "Switched to ADD mode - click on a face to add a new vertex"
         );
-    }, []);
+    }, [setMode]);
     
     // Reset cube function
     const resetCube = useCallback(() => {
@@ -560,8 +563,17 @@ const CubeScene = () => {
 
         window.addEventListener("resize", handleResize);
 
-        // Set initial mode
-        setViewMode();
+        // Set initial mode - using a direct implementation instead of calling setViewMode
+        // to avoid dependency issues
+        const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
+        controlPoints.forEach((point) => {
+            point.visible = false;
+        });
+        cube.material = new THREE.MeshNormalMaterial();
+        viewButton.style.backgroundColor = "#3367d6";
+        editButton.style.backgroundColor = "#4285f4";
+        addButton.style.backgroundColor = "#4285f4";
+        setMode(MODES.VIEW);
 
         // Cleanup function
         return () => {
@@ -577,7 +589,7 @@ const CubeScene = () => {
             cubeGeometry.dispose();
             material.dispose();
         };
-    }, [handleMouseDown, handleMouseMove, handleMouseUp, setViewMode, resetCube]);
+    }, [handleMouseDown, handleMouseMove, handleMouseUp, setMode]);
 
     return (
         <div ref={mountRef} style={{ width: "100%", height: "100vh" }}>
