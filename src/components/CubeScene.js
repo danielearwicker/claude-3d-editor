@@ -89,6 +89,9 @@ const CubeScene = () => {
       controlPointsGroup.add(controlPoint);
     }
     
+    // Add the control points to the scene
+    scene.add(controlPointsGroup);
+    
     // Add lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
@@ -117,6 +120,43 @@ const CubeScene = () => {
     };
     let selectedControlPoint = null;
     
+    // Reset cube to original shape
+    const resetCube = () => {
+      const size = 1;
+      const positions = [
+        // Front face
+        -size, -size,  size, // 0: bottom-left-front
+         size, -size,  size, // 1: bottom-right-front
+         size,  size,  size, // 2: top-right-front
+        -size,  size,  size, // 3: top-left-front
+        // Back face
+        -size, -size, -size, // 4: bottom-left-back
+         size, -size, -size, // 5: bottom-right-back
+         size,  size, -size, // 6: top-right-back
+        -size,  size, -size  // 7: top-left-back
+      ];
+      
+      // Reset control points
+      for (let i = 0; i < controlPoints.length; i++) {
+        controlPoints[i].position.set(
+          positions[i * 3],
+          positions[i * 3 + 1],
+          positions[i * 3 + 2]
+        );
+      }
+      
+      // Reset cube geometry
+      const positionAttribute = cubeGeometry.attributes.position;
+      for (let i = 0; i < 8; i++) {
+        positionAttribute.array[i * 3] = positions[i * 3];
+        positionAttribute.array[i * 3 + 1] = positions[i * 3 + 1];
+        positionAttribute.array[i * 3 + 2] = positions[i * 3 + 2];
+      }
+      
+      positionAttribute.needsUpdate = true;
+      cubeGeometry.computeVertexNormals();
+    };
+    
     // Toggle edit mode function
     const toggleEditMode = () => {
       const newEditMode = !controlPoints[0].visible;
@@ -126,15 +166,25 @@ const CubeScene = () => {
       setEditMode(newEditMode);
     };
     
-    // Create a toggle button for edit mode
+    // Create UI buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.position = 'absolute';
+    buttonContainer.style.top = '10px';
+    buttonContainer.style.left = '10px';
+    buttonContainer.style.zIndex = '100';
+    
     const toggleButton = document.createElement('button');
     toggleButton.textContent = 'Toggle Edit Mode';
-    toggleButton.style.position = 'absolute';
-    toggleButton.style.top = '10px';
-    toggleButton.style.left = '10px';
-    toggleButton.style.zIndex = '100';
+    toggleButton.style.marginRight = '10px';
     toggleButton.addEventListener('click', toggleEditMode);
-    mountRef.current.appendChild(toggleButton);
+    buttonContainer.appendChild(toggleButton);
+    
+    const resetButton = document.createElement('button');
+    resetButton.textContent = 'Reset Cube';
+    resetButton.addEventListener('click', resetCube);
+    buttonContainer.appendChild(resetButton);
+    
+    mountRef.current.appendChild(buttonContainer);
     
     // Update cube geometry when control points move
     const updateCubeGeometry = () => {
@@ -142,9 +192,11 @@ const CubeScene = () => {
       
       for (let i = 0; i < controlPoints.length; i++) {
         const point = controlPoints[i];
-        positions[i * 3] = point.position.x;
-        positions[i * 3 + 1] = point.position.y;
-        positions[i * 3 + 2] = point.position.z;
+        const index = point.userData.index;
+        
+        positions[index * 3] = point.position.x;
+        positions[index * 3 + 1] = point.position.y;
+        positions[index * 3 + 2] = point.position.z;
       }
       
       cubeGeometry.attributes.position.needsUpdate = true;
@@ -193,16 +245,20 @@ const CubeScene = () => {
       
       if (selectedControlPoint) {
         // Move the selected control point
-        // Convert screen movement to 3D movement
-        // This is a simplified approach - in a real app you'd use a proper 3D transformation
+        // Use a plane perpendicular to the camera to move the point
         const movementSpeed = 0.01;
         
-        // Move in the camera's coordinate system
+        // Create vectors for the camera's right and up directions
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
         
-        selectedControlPoint.position.add(right.multiplyScalar(deltaMove.x * movementSpeed));
-        selectedControlPoint.position.add(up.multiplyScalar(-deltaMove.y * movementSpeed));
+        // Calculate movement in world space
+        const moveX = right.clone().multiplyScalar(deltaMove.x * movementSpeed);
+        const moveY = up.clone().multiplyScalar(-deltaMove.y * movementSpeed);
+        
+        // Apply movement
+        selectedControlPoint.position.add(moveX);
+        selectedControlPoint.position.add(moveY);
         
         // Update the cube geometry
         updateCubeGeometry();
@@ -244,7 +300,7 @@ const CubeScene = () => {
       window.removeEventListener('mouseup', handleMouseUp);
       renderer.domElement.removeEventListener('mousedown', handleMouseDown);
       mountRef.current.removeChild(renderer.domElement);
-      mountRef.current.removeChild(toggleButton);
+      mountRef.current.removeChild(buttonContainer);
       cubeGeometry.dispose();
       material.dispose();
       controlPointGeometry.dispose();
