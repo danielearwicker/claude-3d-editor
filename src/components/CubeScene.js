@@ -255,6 +255,7 @@ const CubeScene = () => {
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
 
+        // Hide control points
         controlPoints.forEach((point) => {
             point.visible = false;
         });
@@ -279,9 +280,11 @@ const CubeScene = () => {
         sceneRef.current.selectedControlPoint = null;
         sceneRef.current.isDragging = false;
 
+        // Show control points - make sure they're visible
         controlPoints.forEach((point) => {
             point.visible = true;
         });
+        console.log("Making control points visible:", controlPoints.length);
 
         // Change material to wireframe to see structure better
         const editMaterial = new THREE.MeshNormalMaterial({
@@ -623,6 +626,23 @@ const CubeScene = () => {
             material.dispose();
         };
     }, [handleMouseDown, handleMouseMove, handleMouseUp, setMode, addVertex]);
+
+    // Effect to update control points visibility when mode changes
+    useEffect(() => {
+        if (!sceneRef.current.controlPoints) return;
+        
+        if (mode === MODES.EDIT || mode === MODES.ADD) {
+            sceneRef.current.controlPoints.forEach(point => {
+                point.visible = true;
+            });
+            console.log(`Mode changed to ${mode}, making control points visible`);
+        } else if (mode === MODES.VIEW) {
+            sceneRef.current.controlPoints.forEach(point => {
+                point.visible = false;
+            });
+            console.log(`Mode changed to ${mode}, hiding control points`);
+        }
+    }, [mode]);
 
     return (
         <div ref={mountRef} style={{ width: "100%", height: "100vh" }}>
