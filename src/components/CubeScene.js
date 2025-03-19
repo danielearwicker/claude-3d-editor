@@ -30,6 +30,7 @@ const CubeScene = () => {
         addButton: null
     });
     
+    
     // Define handlers outside useEffect so they have access to current mode
     const handleMouseDown = useCallback((e) => {
         console.log("Mouse down in mode:", mode);
@@ -80,7 +81,7 @@ const CubeScene = () => {
         
         previousMousePosition.x = e.clientX;
         previousMousePosition.y = e.clientY;
-    }, [mode, addVertex]);
+    }, [mode]);
     
     const handleMouseMove = useCallback((e) => {
         if (!sceneRef.current.isDragging) return;
@@ -565,14 +566,13 @@ const CubeScene = () => {
 
         // Set initial mode - using a direct implementation instead of calling setViewMode
         // to avoid dependency issues
-        const { controlPoints, cube, viewButton, editButton, addButton } = sceneRef.current;
-        controlPoints.forEach((point) => {
+        sceneRef.current.controlPoints.forEach((point) => {
             point.visible = false;
         });
-        cube.material = new THREE.MeshNormalMaterial();
-        viewButton.style.backgroundColor = "#3367d6";
-        editButton.style.backgroundColor = "#4285f4";
-        addButton.style.backgroundColor = "#4285f4";
+        sceneRef.current.cube.material = new THREE.MeshNormalMaterial();
+        sceneRef.current.viewButton.style.backgroundColor = "#3367d6";
+        sceneRef.current.editButton.style.backgroundColor = "#4285f4";
+        sceneRef.current.addButton.style.backgroundColor = "#4285f4";
         setMode(MODES.VIEW);
 
         // Cleanup function
@@ -589,7 +589,7 @@ const CubeScene = () => {
             cubeGeometry.dispose();
             material.dispose();
         };
-    }, [handleMouseDown, handleMouseMove, handleMouseUp, setMode]);
+    }, [handleMouseDown, handleMouseMove, handleMouseUp, setMode, addVertex]);
 
     return (
         <div ref={mountRef} style={{ width: "100%", height: "100vh" }}>
