@@ -441,8 +441,9 @@ const CubeScene = () => {
         console.log("Cube reset to original state");
     }, []);
 
+    // Scene setup effect - only runs once
     useEffect(() => {
-        console.log("Ahem");
+        console.log("Setting up scene - this should only run once");
         // Scene setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
@@ -631,11 +632,6 @@ const CubeScene = () => {
 
         mountRef.current.appendChild(buttonContainer);
 
-        // Add event listeners
-        renderer.domElement.addEventListener("mousedown", handleMouseDown);
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-
         // Handle window resize
         const handleResize = () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -661,18 +657,12 @@ const CubeScene = () => {
         // Cleanup function
         return () => {
             window.removeEventListener("resize", handleResize);
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-            renderer.domElement.removeEventListener(
-                "mousedown",
-                handleMouseDown
-            );
             mountRef.current.removeChild(renderer.domElement);
             mountRef.current.removeChild(buttonContainer);
             cubeGeometry.dispose();
             material.dispose();
         };
-    }, [handleMouseDown, handleMouseMove, handleMouseUp, setMode, addVertex]);
+    }, []); // Empty dependency array means this only runs once
 
     // Effect to update control points visibility when mode changes
     useEffect(() => {
@@ -693,6 +683,28 @@ const CubeScene = () => {
             console.log(`Mode changed to ${mode}, hiding control points`);
         }
     }, [mode]);
+
+    // Effect for event listeners that depend on mode
+    useEffect(() => {
+        if (!sceneRef.current.renderer) return;
+        
+        const renderer = sceneRef.current.renderer;
+        
+        // Add event listeners
+        renderer.domElement.addEventListener("mousedown", handleMouseDown);
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+        
+        // Cleanup function
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+            renderer.domElement.removeEventListener(
+                "mousedown",
+                handleMouseDown
+            );
+        };
+    }, [handleMouseDown, handleMouseMove, handleMouseUp]);
 
     return (
         <div ref={mountRef} style={{ width: "100%", height: "100vh" }}>
