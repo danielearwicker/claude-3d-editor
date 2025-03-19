@@ -40,8 +40,6 @@ const CubeScene = () => {
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
-      cube.rotation.x += 0.005;
-      cube.rotation.y += 0.005;
       renderer.render(scene, camera);
     };
     
