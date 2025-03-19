@@ -248,7 +248,7 @@ const CubeScene = () => {
 
     // Mode switching functions
     const setViewMode = useCallback(() => {
-        const { controlPoints, cube, viewButton, editButton, addButton } =
+        const { controlPoints, cube, viewButton, editButton, addButton, controlPointsGroup } =
             sceneRef.current;
 
         // Reset interaction state only
