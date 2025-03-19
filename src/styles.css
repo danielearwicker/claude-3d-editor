@@ -34,3 +34,11 @@ button {
 button:hover {
   background-color: #3367d6;
 }
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus {
+  outline: 2px solid #8ab4f8;
+}

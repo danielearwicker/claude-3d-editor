@@ -1,9 +1,16 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 
+// Mode constants
+const MODES = {
+  VIEW: 'view',
+  EDIT: 'edit',
+  ADD: 'add'
+};
+
 const CubeScene = () => {
   const mountRef = useRef(null);
-  const [editMode, setEditMode] = useState(false);
+  const [mode, setMode] = useState(MODES.VIEW);
   
   useEffect(() => {
     // Scene setup
@@ -135,37 +142,71 @@ const CubeScene = () => {
         -size,  size, -size  // 7: top-left-back
       ];
       
-      // Reset control points
+      // Remove any extra control points beyond the original 8
+      while (controlPoints.length > 8) {
+        const point = controlPoints.pop();
+        controlPointsGroup.remove(point);
+        point.geometry.dispose();
+        point.material.dispose();
+      }
+      
+      // Reset remaining control points
       for (let i = 0; i < controlPoints.length; i++) {
         controlPoints[i].position.set(
           positions[i * 3],
           positions[i * 3 + 1],
           positions[i * 3 + 2]
         );
+        controlPoints[i].userData.index = i;
       }
       
-      // Reset cube geometry
-      const positionAttribute = cubeGeometry.attributes.position;
-      for (let i = 0; i < 8; i++) {
-        positionAttribute.array[i * 3] = positions[i * 3];
-        positionAttribute.array[i * 3 + 1] = positions[i * 3 + 1];
-        positionAttribute.array[i * 3 + 2] = positions[i * 3 + 2];
-      }
+      // Reset cube geometry to original box
+      const indices = [
+        // Front face
+        0, 1, 2, 0, 2, 3,
+        // Back face
+        5, 4, 7, 5, 7, 6,
+        // Top face
+        3, 2, 6, 3, 6, 7,
+        // Bottom face
+        4, 5, 1, 4, 1, 0,
+        // Right face
+        1, 5, 6, 1, 6, 2,
+        // Left face
+        4, 0, 3, 4, 3, 7
+      ];
       
-      positionAttribute.needsUpdate = true;
+      cubeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      cubeGeometry.setIndex(indices);
       cubeGeometry.computeVertexNormals();
       
       // Reset cube rotation
       cube.rotation.set(0, 0, 0);
+      
+      // Set to view mode
+      setViewMode();
     };
     
-    // Toggle edit mode function
-    const toggleEditMode = () => {
-      const newEditMode = !controlPoints[0].visible;
+    // Mode switching functions
+    const setViewMode = () => {
       controlPoints.forEach(point => {
-        point.visible = newEditMode;
+        point.visible = false;
       });
-      setEditMode(newEditMode);
+      setMode(MODES.VIEW);
+    };
+    
+    const setEditMode = () => {
+      controlPoints.forEach(point => {
+        point.visible = true;
+      });
+      setMode(MODES.EDIT);
+    };
+    
+    const setAddMode = () => {
+      controlPoints.forEach(point => {
+        point.visible = true;
+      });
+      setMode(MODES.ADD);
     };
     
     // Create UI buttons
@@ -174,12 +215,24 @@ const CubeScene = () => {
     buttonContainer.style.top = '10px';
     buttonContainer.style.left = '10px';
     buttonContainer.style.zIndex = '100';
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.flexDirection = 'row';
+    buttonContainer.style.gap = '10px';
     
-    const toggleButton = document.createElement('button');
-    toggleButton.textContent = 'Toggle Edit Mode';
-    toggleButton.style.marginRight = '10px';
-    toggleButton.addEventListener('click', toggleEditMode);
-    buttonContainer.appendChild(toggleButton);
+    const viewButton = document.createElement('button');
+    viewButton.textContent = 'View Mode';
+    viewButton.addEventListener('click', setViewMode);
+    buttonContainer.appendChild(viewButton);
+    
+    const editButton = document.createElement('button');
+    editButton.textContent = 'Edit Mode';
+    editButton.addEventListener('click', setEditMode);
+    buttonContainer.appendChild(editButton);
+    
+    const addButton = document.createElement('button');
+    addButton.textContent = 'Add Vertex Mode';
+    addButton.addEventListener('click', setAddMode);
+    buttonContainer.appendChild(addButton);
     
     const resetButton = document.createElement('button');
     resetButton.textContent = 'Reset Cube';
@@ -187,6 +240,48 @@ const CubeScene = () => {
     buttonContainer.appendChild(resetButton);
     
     mountRef.current.appendChild(buttonContainer);
+    
+    // Function to add a new vertex
+    const addVertex = (position, faceIndex) => {
+      // Get current positions and indices
+      const positions = Array.from(cubeGeometry.attributes.position.array);
+      const indices = Array.from(cubeGeometry.getIndex().array);
+      
+      // Add the new vertex position
+      const newVertexIndex = positions.length / 3;
+      positions.push(position.x, position.y, position.z);
+      
+      // Create a new control point for this vertex
+      const controlPoint = new THREE.Mesh(controlPointGeometry, controlPointMaterial);
+      controlPoint.position.copy(position);
+      controlPoint.userData.index = newVertexIndex;
+      controlPoint.visible = true;
+      
+      controlPoints.push(controlPoint);
+      controlPointsGroup.add(controlPoint);
+      
+      // Get the face that was clicked (3 vertices)
+      const faceVertices = [
+        indices[faceIndex * 3],
+        indices[faceIndex * 3 + 1],
+        indices[faceIndex * 3 + 2]
+      ];
+      
+      // Remove the original face
+      indices.splice(faceIndex * 3, 3);
+      
+      // Add three new faces connecting the new vertex to each edge of the original face
+      indices.push(
+        faceVertices[0], faceVertices[1], newVertexIndex,
+        faceVertices[1], faceVertices[2], newVertexIndex,
+        faceVertices[2], faceVertices[0], newVertexIndex
+      );
+      
+      // Update the geometry
+      cubeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      cubeGeometry.setIndex(indices);
+      cubeGeometry.computeVertexNormals();
+    };
     
     // Update cube geometry when control points move
     const updateCubeGeometry = () => {
@@ -211,10 +306,24 @@ const CubeScene = () => {
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
       
-      // Check if we're in edit mode
-      if (controlPoints[0].visible) {
-        // Check if we clicked on a control point
-        raycaster.setFromCamera(mouse, camera);
+      // Set up raycaster
+      raycaster.setFromCamera(mouse, camera);
+      
+      if (mode === MODES.ADD) {
+        // In add mode, check if we clicked on a face of the cube
+        const intersects = raycaster.intersectObject(cube);
+        
+        if (intersects.length > 0) {
+          const intersect = intersects[0];
+          
+          // Get the face index
+          const faceIndex = Math.floor(intersect.faceIndex / 2); // Divide by 2 because each quad is made of 2 triangles
+          
+          // Add a new vertex at the intersection point
+          addVertex(intersect.point, faceIndex);
+        }
+      } else if (mode === MODES.EDIT) {
+        // In edit mode, check if we clicked on a control point
         const intersects = raycaster.intersectObjects(controlPoints, false);
         
         if (intersects.length > 0) {
@@ -226,7 +335,7 @@ const CubeScene = () => {
           selectedControlPoint = null;
         }
       } else {
-        // Normal rotation mode
+        // View mode - just rotate the cube
         isDragging = true;
         selectedControlPoint = null;
       }
@@ -245,7 +354,10 @@ const CubeScene = () => {
         y: e.clientY - previousMousePosition.y
       };
       
-      if (selectedControlPoint) {
+      if (mode === MODES.ADD) {
+        // In add mode, we don't do anything on mouse move
+        return;
+      } else if (selectedControlPoint && mode === MODES.EDIT) {
         // Move the selected control point
         const movementSpeed = 0.01;
         
@@ -317,7 +429,19 @@ const CubeScene = () => {
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100vh' }}>
-      {/* The toggle button is added directly to the DOM in the useEffect */}
+      {/* Mode indicator */}
+      <div style={{ 
+        position: 'absolute', 
+        bottom: '10px', 
+        left: '10px', 
+        padding: '5px 10px', 
+        backgroundColor: 'rgba(0,0,0,0.5)', 
+        color: 'white', 
+        borderRadius: '4px',
+        zIndex: 100
+      }}>
+        Current Mode: {mode}
+      </div>
     </div>
   );
 };
