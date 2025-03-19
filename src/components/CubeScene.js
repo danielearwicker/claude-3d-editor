@@ -237,8 +237,11 @@ const CubeScene = () => {
         cubeGeometry.setIndex(indices);
         cubeGeometry.computeVertexNormals();
         
+        // Store the current material to restore it after updating wireframe
+        const currentMaterial = cube.material.clone();
+        
         // Update wireframe if in ADD mode
-        if (mode === MODES.ADD && cube.children.some(child => child.isLineSegments)) {
+        if (mode === MODES.ADD) {
             // Remove old wireframe
             cube.children.forEach(child => {
                 if (child.isLineSegments && child !== controlPointsGroup) {
@@ -255,6 +258,9 @@ const CubeScene = () => {
             wireframe.material.linewidth = 2;
             cube.add(wireframe);
             sceneRef.current.wireframe = wireframe;
+            
+            // Restore the material
+            cube.material = currentMaterial;
         }
 
         // Log success message
@@ -295,6 +301,7 @@ const CubeScene = () => {
         // Change material to normal material but preserve geometry
         const newMaterial = new THREE.MeshNormalMaterial();
         newMaterial.needsUpdate = true;
+        newMaterial.flatShading = false;
         cube.material = newMaterial;
         
         // Log the cube state to help debug
@@ -342,6 +349,7 @@ const CubeScene = () => {
             wireframe: false,
             transparent: true,
             opacity: 0.8,
+            flatShading: false
         });
         editMaterial.needsUpdate = true;
         cube.material = editMaterial;
@@ -376,12 +384,16 @@ const CubeScene = () => {
             point.visible = true;
         });
 
+        // Store the original material type to restore it later
+        sceneRef.current.originalMaterialType = cube.material.type;
+        
         // Create a material that shows both wireframe and faces
         const addMaterial = new THREE.MeshPhongMaterial({
             color: 0x88ccff,
             transparent: true,
             opacity: 0.7,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            flatShading: false
         });
         
         // Add wireframe using the current geometry
@@ -669,7 +681,8 @@ const CubeScene = () => {
             // Check if cube material is valid
             if (cube && (!cube.material || cube.material.opacity === 0)) {
                 console.warn("Cube material issue detected! Fixing...");
-                cube.material = new THREE.MeshNormalMaterial();
+                const fixMaterial = new THREE.MeshNormalMaterial({ flatShading: false });
+                cube.material = fixMaterial;
             }
             
             // Check if wireframe is valid in ADD mode
@@ -683,7 +696,12 @@ const CubeScene = () => {
                 
                 if (!hasWireframe) {
                     console.warn("ADD mode missing wireframe! Recreating...");
-                    setAddMode();
+                    // Create wireframe without changing material
+                    const wireframeGeometry = new THREE.WireframeGeometry(cubeGeometry);
+                    const wireframe = new THREE.LineSegments(wireframeGeometry);
+                    wireframe.material.color.set(0x000000);
+                    wireframe.material.linewidth = 2;
+                    cube.add(wireframe);
                 }
             }
             
