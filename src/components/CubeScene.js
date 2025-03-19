@@ -192,21 +192,57 @@ const CubeScene = () => {
       controlPoints.forEach(point => {
         point.visible = false;
       });
+      
+      // Change material to normal material
+      cube.material = material;
+      
+      // Update UI
+      viewButton.style.backgroundColor = '#3367d6';
+      editButton.style.backgroundColor = '#4285f4';
+      addButton.style.backgroundColor = '#4285f4';
+      
       setMode(MODES.VIEW);
+      console.log("Switched to VIEW mode - drag to rotate cube");
     };
     
     const setEditMode = () => {
       controlPoints.forEach(point => {
         point.visible = true;
       });
+      
+      // Change material to wireframe to see structure better
+      const editMaterial = new THREE.MeshNormalMaterial({ wireframe: false, transparent: true, opacity: 0.8 });
+      cube.material = editMaterial;
+      
+      // Update UI
+      viewButton.style.backgroundColor = '#4285f4';
+      editButton.style.backgroundColor = '#3367d6';
+      addButton.style.backgroundColor = '#4285f4';
+      
       setMode(MODES.EDIT);
+      console.log("Switched to EDIT mode - click and drag control points to move vertices");
     };
     
     const setAddMode = () => {
       controlPoints.forEach(point => {
         point.visible = true;
       });
+      
+      // Change material to highlight faces
+      const addMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x88ccff, 
+        wireframe: true,
+        wireframeLinewidth: 2
+      });
+      cube.material = addMaterial;
+      
+      // Update UI
+      viewButton.style.backgroundColor = '#4285f4';
+      editButton.style.backgroundColor = '#4285f4';
+      addButton.style.backgroundColor = '#3367d6';
+      
       setMode(MODES.ADD);
+      console.log("Switched to ADD mode - click on a face to add a new vertex");
     };
     
     // Create UI buttons
@@ -281,6 +317,10 @@ const CubeScene = () => {
       cubeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       cubeGeometry.setIndex(indices);
       cubeGeometry.computeVertexNormals();
+      
+      // Log success message
+      console.log(`Added new vertex at position (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`);
+      console.log(`New vertex index: ${newVertexIndex}`);
     };
     
     // Update cube geometry when control points move
@@ -311,33 +351,36 @@ const CubeScene = () => {
       
       if (mode === MODES.ADD) {
         // In add mode, check if we clicked on a face of the cube
-        const intersects = raycaster.intersectObject(cube);
+        const intersects = raycaster.intersectObject(cube, false);
         
-        if (intersects.length > 0) {
+        if (intersects.length > 0 && intersects[0].object === cube) {
           const intersect = intersects[0];
           
           // Get the face index
-          const faceIndex = Math.floor(intersect.faceIndex / 2); // Divide by 2 because each quad is made of 2 triangles
+          const faceIndex = Math.floor(intersect.faceIndex);
           
           // Add a new vertex at the intersection point
           addVertex(intersect.point, faceIndex);
         }
       } else if (mode === MODES.EDIT) {
         // In edit mode, check if we clicked on a control point
-        const intersects = raycaster.intersectObjects(controlPoints, false);
+        // We need to traverse the scene to find all control points
+        const allControlPoints = [];
+        controlPointsGroup.traverse((object) => {
+          if (object instanceof THREE.Mesh && object !== cube) {
+            allControlPoints.push(object);
+          }
+        });
+        
+        const intersects = raycaster.intersectObjects(allControlPoints, false);
         
         if (intersects.length > 0) {
           selectedControlPoint = intersects[0].object;
           isDragging = true;
-        } else {
-          // If not clicking on a control point, rotate the cube
-          isDragging = true;
-          selectedControlPoint = null;
         }
-      } else {
+      } else if (mode === MODES.VIEW) {
         // View mode - just rotate the cube
         isDragging = true;
-        selectedControlPoint = null;
       }
       
       previousMousePosition = {
@@ -354,10 +397,7 @@ const CubeScene = () => {
         y: e.clientY - previousMousePosition.y
       };
       
-      if (mode === MODES.ADD) {
-        // In add mode, we don't do anything on mouse move
-        return;
-      } else if (selectedControlPoint && mode === MODES.EDIT) {
+      if (selectedControlPoint && mode === MODES.EDIT) {
         // Move the selected control point
         const movementSpeed = 0.01;
         
@@ -381,8 +421,8 @@ const CubeScene = () => {
         
         // Update the cube geometry
         updateCubeGeometry();
-      } else {
-        // Rotate the cube based on mouse movement
+      } else if (mode === MODES.VIEW && isDragging) {
+        // Only rotate the cube in view mode
         cube.rotation.y += deltaMove.x * 0.01;
         cube.rotation.x += deltaMove.y * 0.01;
       }
@@ -395,7 +435,9 @@ const CubeScene = () => {
     
     const handleMouseUp = () => {
       isDragging = false;
-      selectedControlPoint = null;
+      if (mode !== MODES.EDIT) {
+        selectedControlPoint = null;
+      }
     };
     
     // Add event listeners
@@ -434,13 +476,20 @@ const CubeScene = () => {
         position: 'absolute', 
         bottom: '10px', 
         left: '10px', 
-        padding: '5px 10px', 
-        backgroundColor: 'rgba(0,0,0,0.5)', 
+        padding: '10px 15px', 
+        backgroundColor: 'rgba(0,0,0,0.7)', 
         color: 'white', 
         borderRadius: '4px',
-        zIndex: 100
+        zIndex: 100,
+        fontWeight: 'bold',
+        fontSize: '16px'
       }}>
-        Current Mode: {mode}
+        Current Mode: {mode.toUpperCase()}
+        <div style={{ fontSize: '12px', marginTop: '5px', fontWeight: 'normal' }}>
+          {mode === MODES.VIEW && "Drag to rotate the cube"}
+          {mode === MODES.EDIT && "Click and drag red control points to move vertices"}
+          {mode === MODES.ADD && "Click on a face to add a new vertex"}
+        </div>
       </div>
     </div>
   );
